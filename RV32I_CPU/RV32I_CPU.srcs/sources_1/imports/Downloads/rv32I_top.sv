@@ -7,7 +7,7 @@ module rv32I_top (
 
     logic [31:0] instr_addr, instr_data;
 
-    instruction_mem U_INSTRUTION_MEM (.*);
+    instruction_mem U_INSTRUCTION_MEM (.*);
     rv32i_cpu U_RV32I (.*);
 
 endmodule

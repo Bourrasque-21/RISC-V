@@ -1,14 +1,20 @@
 `timescale 1ns / 1ps
 module rv32i_cpu (
-    input        clk,
-    input        rst,
-    input [31:0] instr_addr,
-    input [31:0] instr_data
+    input         clk,
+    input         rst,
+    input  [31:0] instr_data,
+    output [31:0] instr_addr
 );
 
     logic       rf_we;
     logic [3:0] alu_control;
     logic [31:0] rd1, rd2, alu_result;
+
+    pc U_PC (
+        .clk(clk),
+        .rst(rst),
+        .instr_addr(instr_addr)
+    );
 
     control_unit U_CONTROL_UNIT (
         .funct7     (instr_data[31:25]),
@@ -17,6 +23,7 @@ module rv32i_cpu (
         .rf_we      (rf_we),
         .alu_control(alu_control)
     );
+
     register_file U_REG_FILE (
         .clk  (clk),
         .rst  (rst),
@@ -28,12 +35,26 @@ module rv32i_cpu (
         .RD1  (rd1),
         .RD2  (rd2)
     );
+
     alu U_ALU (
         .rd1        (rd1),
         .rd2        (rd2),
         .alu_control(alu_control),
         .alu_result (alu_result)
     );
+endmodule
+
+module pc (
+    input               clk,
+    input               rst,
+    output logic [31:0] instr_addr
+);
+
+    always_ff @(posedge clk, posedge rst) begin
+        if (rst) instr_addr <= 32'd0;
+        else instr_addr <= instr_addr + 32'd4;
+    end
+
 endmodule
 
 
@@ -63,7 +84,9 @@ module control_unit (
         alu_control = ALU_ADD;
         if (opcode == R_TYPE) begin
             rf_we = 1'b1;
-            case ({funct7, funct3})
+            case ({
+                funct7, funct3
+            })
                 {7'b0000000, 3'b000} : alu_control = ALU_ADD;  // ADD 
                 {7'b0100000, 3'b000} : alu_control = ALU_SUB;  // SUB 
                 {7'b0000000, 3'b001} : alu_control = ALU_SLL;  // SLL 
@@ -126,7 +149,8 @@ module alu (
             4'b0000: alu_result = rd1 + rd2;  // ADD
             4'b0001: alu_result = rd1 - rd2;  // SUB
             4'b0010: alu_result = rd1 << rd2[4:0];  // SLL
-            4'b0011: alu_result = ($signed(rd1) < $signed(rd2)) ? 32'd1 : 32'd0;  // SLT
+            4'b0011:
+            alu_result = ($signed(rd1) < $signed(rd2)) ? 32'd1 : 32'd0;  // SLT
             4'b0100: alu_result = (rd1 < rd2) ? 32'd1 : 32'd0;  // SLTU
             4'b0101: alu_result = rd1 ^ rd2;  // XOR
             4'b0110: alu_result = rd1 >> rd2[4:0];  // SRL
