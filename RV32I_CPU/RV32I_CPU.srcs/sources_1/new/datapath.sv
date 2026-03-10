@@ -8,14 +8,16 @@ module datapath (
     input        [31:0] instr_data,
     input               rf_we,
     input               alusrc,
-    output logic [31:0] d_waddr,
+    input               rfwd_src,
+    input        [31:0] drdata,
+    output logic [31:0] daddr,
     output logic [31:0] d_wdata,
     output logic [31:0] instr_addr
 );
 
-    logic [31:0] rd1, rd2, alu_result, alu_mux_out, imm_data;
+    logic [31:0] rd1, rd2, alu_result, alu_mux_out, imm_data, dmem_data_result;
 
-    assign d_waddr = alu_result;
+    assign daddr   = alu_result;
     assign d_wdata = rd2;
 
     pc U_PC (
@@ -30,7 +32,7 @@ module datapath (
         .RA1  (instr_data[19:15]),
         .RA2  (instr_data[24:20]),
         .WA   (instr_data[11:7]),
-        .Wdata(alu_result),
+        .Wdata(dmem_data_result),
         .rf_we(rf_we),
         .RD1  (rd1),
         .RD2  (rd2)
@@ -55,6 +57,12 @@ module datapath (
         .mux_out(alu_mux_out)
     );
 
+    mux_2x1 U_2x1_MUX_REG (
+        .a      (alu_result),
+        .b      (drdata),
+        .sel    (rfwd_src),
+        .mux_out(dmem_data_result)
+    );
 endmodule
 
 
@@ -140,6 +148,9 @@ module imm_extender (
                     {20{instr_data[31]}}, instr_data[31:25], instr_data[11:7]
                 };
             end
+            `I_TYPE, `IL_TYPE: begin
+                imm_data = {{20{instr_data[31]}}, instr_data[31:20]};
+            end
         endcase
     end
 
@@ -156,4 +167,3 @@ module mux_2x1 (
     assign mux_out = (sel) ? b : a;
 
 endmodule
-
