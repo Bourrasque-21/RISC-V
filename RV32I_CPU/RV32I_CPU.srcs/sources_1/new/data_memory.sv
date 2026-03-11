@@ -95,13 +95,5 @@ module data_mem (
             endcase
         end
     end
-    // assign drdata = dmem[daddr[31:2]];
-    initial begin
-        for (int i = 2; i < 32; i++) begin
-            dmem[0] = 0;
-            dmem[1] = 32'h80FF7F01;
-            dmem[i] = i;
-        end
-    end
 
 endmodule
