@@ -3,6 +3,11 @@
 `define S_TYPE 7'b0100011
 `define IL_TYPE 7'b0000011
 `define I_TYPE 7'b0010011
+`define B_TYPE 7'b1100011
+`define LUI_TYPE 7'b0110111
+`define AUIPC_TYPE 7'b0010111
+`define JAL_TYPE 7'b1101111
+`define JALR_TYPE 7'b1100111
 
 // ALU control
 `define ADD 4'b0000
@@ -24,8 +29,14 @@
 // IL-type
 `define LB 3'b000
 `define LH 3'b001
-`define LW 3'b010 //
+`define LW 3'b010
 `define LBU 3'b100
 `define LHU 3'b101
 
-// I-type
+// B-type
+`define BEQ 4'b0000
+`define BNE 4'b0001
+`define BLT 4'b0100
+`define BGE 4'b0101
+`define BLTU 4'b0110
+`define BGEU 4'b0111
