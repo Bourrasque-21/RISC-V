@@ -28,13 +28,15 @@ module datapath (
         btype_sum,
         pc4_sum,
         pc_final_addr,
-        jalr_2_adder;
+        jalr_2_adder,
+        pc_jump_addr;
     logic comp_result, b_branch, branch_x_jal;
 
     assign daddr = alu_result;
     assign d_wdata = rd2;
     assign b_branch = branch_c & comp_result;
     assign branch_x_jal = b_branch | jal_c | jalr_c;
+    assign pc_jump_addr = (jalr_c) ? {btype_sum[31:1], 1'b0} : btype_sum;
 
     pc U_PC (
         .clk(clk),
@@ -57,7 +59,7 @@ module datapath (
 
     mux_2x1 PC_ADDR_SEL (
         .a      (pc4_sum),
-        .b      (btype_sum),
+        .b      (pc_jump_addr),
         .sel    (branch_x_jal),
         .mux_out(pc_final_addr)
     );
@@ -144,15 +146,9 @@ module register_file (
     assign RD1 = (RA1 == 5'd0) ? 32'd0 : reg_file[RA1];
     assign RD2 = (RA2 == 5'd0) ? 32'd0 : reg_file[RA2];
 
-    always_ff @(posedge clk, posedge rst) begin
-        if (rst) begin
-            for (int i = 0; i < 32; i++) begin
-                reg_file[i] <= i;
-            end
-        end else begin
-            if (rf_we && (WA != 5'd0)) begin
-                reg_file[WA] <= Wdata;
-            end
+    always_ff @(posedge clk) begin
+        if (!rst && rf_we && (WA != 5'd0)) begin
+            reg_file[WA] <= Wdata;
         end
     end
 endmodule
@@ -206,7 +202,9 @@ module imm_extender (
         imm_data = 32'h0;
         case (instr_data[6:0])
             `S_TYPE: begin
-                imm_data = {{20{instr_data[31]}}, instr_data[31:25], instr_data[11:7]};
+                imm_data = {
+                    {20{instr_data[31]}}, instr_data[31:25], instr_data[11:7]
+                };
             end
             `I_TYPE, `IL_TYPE: begin
                 imm_data = {{20{instr_data[31]}}, instr_data[31:20]};
@@ -269,11 +267,11 @@ module mux_5x1 (
 
     always_comb begin
         case (sel)
-            3'b000: mux_out = a;
-            3'b001: mux_out = b;
-            3'b010: mux_out = c;
-            3'b011: mux_out = d;
-            3'b100: mux_out = e;
+            3'b000:  mux_out = a;
+            3'b001:  mux_out = b;
+            3'b010:  mux_out = c;
+            3'b011:  mux_out = d;
+            3'b100:  mux_out = e;
             default: mux_out = 32'd0;
         endcase
     end

@@ -10,7 +10,7 @@ module data_mem (
     output logic [31:0] drdata
 );
     // word address
-    logic [31:0] dmem[0:31];
+    logic [31:0] dmem[0:511];
     always_ff @(posedge clk) begin
         if (dwe) begin
             case (funct3_in)
