@@ -149,7 +149,7 @@ module register_file (
     //initial set
     initial begin
         reg_file[0] = 32'd0;  // x0 = 0
-        reg_file[1] = -32'sd1;  // x1 = -1
+        reg_file[1] = 32'h12345678;  // x1 = -1
 
         for (int i = 2; i < 32; i++) begin
             reg_file[i] = i;  // x2 = 1, x3 = 2, x4 = 3, ...

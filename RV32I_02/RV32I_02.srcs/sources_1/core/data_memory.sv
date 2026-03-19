@@ -97,10 +97,12 @@ module data_mem (
     end
 
 
-  
+
     initial begin
-        // dmem[0] = 32'h1234_80ff;
-        // dmem[1] = 32'h1234_5678;
+        // dmem[0] = 32'h12f4f678;
+        // dmem[1] = 32'habcde123;
+        // dmem[2] = 32'h12345678;
+
         for (int i = 0; i < 32; i++) begin
             dmem[i] = 0;
         end
