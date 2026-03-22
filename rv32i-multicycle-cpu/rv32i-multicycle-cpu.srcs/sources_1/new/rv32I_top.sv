@@ -2,8 +2,7 @@
 
 module rv32i_top (
     input clk,
-    input rst,
-    output done
+    input rst
 );
 
     logic [31:0] instr_addr, instr_data, d_wdata, drdata, daddr;

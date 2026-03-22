@@ -10,8 +10,7 @@ module rv32i_cpu (
     output [31:0] daddr,
     output [31:0] d_wdata,
     output [ 2:0] funct3_out,
-    output        dwe,
-    output        done
+    output        dwe
 );
 
     logic pc_en, ir_en, oldpc_en, operand_en, alu_out_en, mdr_en;
@@ -64,8 +63,7 @@ module rv32i_cpu (
         .d_wdata        (d_wdata),
         .instr_addr     (instr_addr),
         .ir_data        (ir_data_q),
-        .out_comp_result(comp_result),
-        .done           (done)
+        .out_comp_result(comp_result)
     );
 
 endmodule

@@ -15,8 +15,7 @@ module datapath (
     input        [31:0] drdata,
     output logic [31:0] daddr,
     output logic [31:0] d_wdata,
-    output logic [31:0] instr_addr,
-    output logic        done
+    output logic [31:0] instr_addr
 );
 
     logic [31:0]
@@ -114,13 +113,6 @@ module datapath (
         .mux_out(dmem_data_result)
     );
 
-    always_ff @(posedge clk, posedge rst) begin
-        if (rst) begin
-            done <= 1'b0;
-        end else if (rf_we && (instr_data[11:7] == 5'd10) && (dmem_data_result == 32'd55)) begin
-            done <= 1'b1;
-        end
-    end
 endmodule
 
 

@@ -2,8 +2,7 @@
 
 module rv32i_top (
     input clk,
-    input rst,
-    output done
+    input rst
 );
 
     logic [31:0] instr_addr, instr_data, d_wdata, drdata, daddr;
@@ -28,8 +27,7 @@ module rv32i_top (
         .daddr(daddr),
         .d_wdata(d_wdata),
         .funct3_out(funct3_out),
-        .dwe(dwe),
-        .done(done)
+        .dwe(dwe)
     );
     data_mem U_DATA_MEM (
         .clk(cpu_clk),
