@@ -5,6 +5,11 @@ module datapath (
     input               clk,
     input               rst,
     input               pc_en,
+    input               ir_en,
+    input               oldpc_en,
+    input               operand_en,
+    input               alu_out_en,
+    input               mdr_en,
     input        [ 3:0] alu_control,
     input        [31:0] instr_data,
     input               rf_we,
@@ -16,44 +21,63 @@ module datapath (
     input        [31:0] drdata,
     output logic [31:0] daddr,
     output logic [31:0] d_wdata,
-    output logic [31:0] instr_addr
-);
+    output logic [31:0] instr_addr,
+    output logic [31:0] ir_data,
+    output logic        out_comp_result,
+    output logic        done
+    );
 
     logic [31:0]
-        alu_mux_out,
+        rd1,
+        rd2,
+        out_old_pc,
+        out_rd1,
+        out_rd2,
+        out_imm_data,
+        out_alu_result,
+        out_mdr_data,
         alu_result,
+        alu_mux_out,
         imm_data,
         dmem_data_result,
-        btype_sum,
         pc4_sum,
+        old_pc4_sum,
+        pc_rel_sum,
         pc_final_addr,
-        jalr_2_adder;
-    logic comp_result, b_branch, branch_x_jal;
-    //decorder
-    logic [31:0]
-        i_dec_rs1, o_dec_rs1, i_dec_rs2, o_dec_rs2, i_dec_imm, o_dec_imm;
+        pc_base_addr,
+        pc_jump_addr;
+    logic comp_result, branch_taken, branch_x_jal;
 
-    //execute
-    logic [31:0] o_exe_rs2, o_exe_alu_result;
-    logic [31:0] pc_next, pc_jtype, o_exe_pcnext;
-    //mem
-    logic [31:0] o_mem_drdata;
-    //write back
+    assign out_comp_result = comp_result;
+    assign daddr = out_alu_result;
+    assign d_wdata = out_rd2;
+    assign branch_taken = branch_c & comp_result;
+    assign branch_x_jal = branch_taken | jal_c | jalr_c;
+    assign pc_base_addr = (jalr_c) ? out_rd1 : out_old_pc;
+    assign pc_jump_addr = (jalr_c) ? {pc_rel_sum[31:1], 1'b0} : pc_rel_sum;
 
-    assign daddr = o_exe_alu_result;
-    assign d_wdata = o_exe_rs2;
-    assign b_branch = branch_c & comp_result;
-    assign branch_x_jal = b_branch | jal_c | jalr_c;
-    assign pc_final_addr = (jalr_c) ? {btype_sum[31:2], 2'b00} : // instr_addr 4byte
-        (branch_x_jal) ? btype_sum : pc4_sum;
-
-
-    // fetch, Execute
     pc U_PC (
-        .clk(clk),
-        .rst(rst),
-        .address(pc_final_addr),
+        .clk       (clk),
+        .rst       (rst),
+        .pc_en     (pc_en),
+        .address   (pc_final_addr),
         .instr_addr(instr_addr)
+    );
+
+    register_en U_IR_REG (
+        .clk     (clk),
+        .rst     (rst),
+        .en      (ir_en),
+        .data_in (instr_data),
+        .data_out(ir_data)
+    );
+
+    register_en U_OLD_PC_REG (
+        .clk     (clk),
+        .rst     (rst),
+        .en      (oldpc_en),
+        .data_in (instr_addr),
+        .data_out(out_old_pc)
     );
 
     adder U_PC_4_ADDER (
@@ -62,137 +86,130 @@ module datapath (
         .s(pc4_sum)
     );
 
-    adder U_IMM_PC_ADDER (
-        .a(o_dec_imm),
-        .b(jalr_2_adder),
-        .s(btype_sum)
+    adder U_OLD_PC_4_ADDER (
+        .a(out_old_pc),
+        .b(32'd4),
+        .s(old_pc4_sum)
+    );
+
+    adder U_PC_REL_ADDER (
+        .a(out_imm_data),
+        .b(pc_base_addr),
+        .s(pc_rel_sum)
     );
 
     mux_2x1 PC_ADDR_SEL (
         .a      (pc4_sum),
-        .b      (btype_sum),
+        .b      (pc_jump_addr),
         .sel    (branch_x_jal),
         .mux_out(pc_final_addr)
     );
 
-    mux_2x1 PC_JALR_MUX (
-        .a      (instr_addr),
-        .b      (rd1),
-        .sel    (jalr_c),
-        .mux_out(jalr_2_adder)
-    );
-
-    //
-    register_en U_PCNEXT_REG (
-        .clk(clk),
-        .rst(rst),
-        .data_in(pc_next),
-        .data_out(o_exe_pcnext)
-    );
-
-    //decode
     register_file U_REG_FILE (
         .clk  (clk),
         .rst  (rst),
-        .RA1  (instr_data[19:15]),
-        .RA2  (instr_data[24:20]),
-        .WA   (instr_data[11:7]),
+        .RA1  (ir_data[19:15]),
+        .RA2  (ir_data[24:20]),
+        .WA   (ir_data[11:7]),
         .Wdata(dmem_data_result),
         .rf_we(rf_we),
-        .RD1  (i_dec_rs1),
-        .RD2  (i_dec_rs2)
+        .RD1  (rd1),
+        .RD2  (rd2)
     );
 
-    imm_extender U_IMM_EXT (
-        .instr_data(instr_data),
-        .imm_data  (imm_data)
+    register_en U_A_REG (
+        .clk     (clk),
+        .rst     (rst),
+        .en      (operand_en),
+        .data_in (rd1),
+        .data_out(out_rd1)
     );
 
-
-    register_file U_DEC_REG_RS1 (
-        .clk(clk),
-        .rst(rst),
-        .data_in(i_dec_rs1),
-        .data_out(o_dec_rs1)
+    register_en U_B_REG (
+        .clk     (clk),
+        .rst     (rst),
+        .en      (operand_en),
+        .data_in (rd2),
+        .data_out(out_rd2)
     );
 
-    register_file U_DEC_REG_RS2 (
-        .clk(clk),
-        .rst(rst),
-        .data_in(i_dec_rs2),
-        .data_out(o_dec_rs2)
-    );
-
-    register_file U_DEC_IMM_EXT (
-        .clk(clk),
-        .rst(rst),
-        .data_in(imm_data),
-        .data_out(o_dec_imm)
+    register_en U_IMM_REG (
+        .clk     (clk),
+        .rst     (rst),
+        .en      (operand_en),
+        .data_in (imm_data),
+        .data_out(out_imm_data)
     );
 
     alu U_ALU (
-        .rd1        (o_dec_rs1),
+        .rd1        (out_rd1),
         .rd2        (alu_mux_out),
         .alu_control(alu_control),
         .alu_result (alu_result),
         .comp_result(comp_result)
     );
 
+    register_en U_ALUOUT_REG (
+        .clk     (clk),
+        .rst     (rst),
+        .en      (alu_out_en),
+        .data_in (alu_result),
+        .data_out(out_alu_result)
+    );
 
+    register_en U_MDR_REG (
+        .clk     (clk),
+        .rst     (rst),
+        .en      (mdr_en),
+        .data_in (drdata),
+        .data_out(out_mdr_data)
+    );
+
+    imm_extender U_IMM_EXT (
+        .instr_data(ir_data),
+        .imm_data  (imm_data)
+    );
 
     mux_2x1 U_2x1_MUX_ALU (
-        .a      (o_dec_rs2),
-        .b      (o_dec_imm),
+        .a      (out_rd2),
+        .b      (out_imm_data),
         .sel    (alusrc),
         .mux_out(alu_mux_out)
     );
 
-    register_file U_EXE_ALU_RESULT (
-        .clk(clk),
-        .rst(rst),
-        .data_in(alu_result),
-        .data_out(o_exe_alu_result)  // to daddr
-    );
-
-    register_file U_EXE_REG_RS2 (
-        .clk(clk),
-        .rst(rst),
-        .data_in(o_dec_rs2),  // from alu result
-        .data_out(o_exe_rs2)  // to data mem_wdata
-    );
-
-    //MEM to WB
-    register_file U_MEM_REG_DRDATA (
-        .clk(clk),
-        .rst(rst),
-        .data_in(drdata),
-        .data_out(o_mem_drdata)
-    );
-
-    //Write back to register file
-
     mux_5x1 U_5x1_MUX (
-        .a(o_exe_alu_result),  // alu result
-        .b(o_mem_drdata),  // from data memory
-        .c(o_dec_imm),  // from imm extend, for LUI
-        .d(btype_sum),  // from pc+imm extend
-        .e(pc4_sum),  // from pc+4
-        .sel(rfwd_src),
+        .a      (out_alu_result),
+        .b      (out_mdr_data),
+        .c      (out_imm_data),
+        .d      (pc_rel_sum),
+        .e      (old_pc4_sum),
+        .sel    (rfwd_src),
         .mux_out(dmem_data_result)
     );
+
+    always_ff @(posedge clk, posedge rst) begin
+        if (rst) begin
+            done <= 1'b0;
+        end else if (rf_we && (ir_data[11:7] == 5'd10) && (dmem_data_result == 32'd55)) begin
+            done <= 1'b1;
+        end
+    end
 endmodule
 
 
 module pc (
     input               clk,
     input               rst,
+    input               pc_en,
     input        [31:0] address,
     output logic [31:0] instr_addr
 );
 
     always_ff @(posedge clk, posedge rst) begin
         if (rst) instr_addr <= 32'd0;
-        else instr_addr <= address;
+        else if (pc_en) begin
+            instr_addr <= address;
+        end
     end
 
 endmodule
@@ -215,11 +232,10 @@ module register_file (
     assign RD2 = (RA2 == 5'd0) ? 32'd0 : reg_file[RA2];
 
     always_ff @(posedge clk) begin
-        if (!rst & rf_we & (WA != 5'd0)) begin
+        if (!rst && rf_we && (WA != 5'd0)) begin
             reg_file[WA] <= Wdata;
         end
     end
-
 endmodule
 
 
@@ -357,11 +373,10 @@ module adder (
 endmodule
 
 
-////////////////////
 module register_en (
     input         clk,
     input         rst,
-    input         pc_en,
+    input         en,
     input  [31:0] data_in,
     output [31:0] data_out
 );
@@ -370,27 +385,7 @@ module register_en (
     always_ff @(posedge clk, posedge rst) begin
         if (rst) begin
             register <= 0;
-        end else begin
-            if (pc_en) register <= data_in;
-        end
-    end
-    assign data_out = register;
-endmodule
-
-
-module register (
-    input         clk,
-    input         rst,
-    input         pc_en,
-    input  [31:0] data_in,
-    output [31:0] data_out
-);
-    logic [31:0] register;
-
-    always_ff @(posedge clk, posedge rst) begin
-        if (rst) begin
-            register <= 0;
-        end else begin
+        end else if (en) begin
             register <= data_in;
         end
     end
