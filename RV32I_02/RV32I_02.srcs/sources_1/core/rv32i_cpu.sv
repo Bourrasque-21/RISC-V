@@ -10,7 +10,8 @@ module rv32i_cpu (
     output [31:0] daddr,
     output [31:0] d_wdata,
     output [ 2:0] funct3_out,
-    output        dwe
+    output        dwe,
+    output        done
 );
 
     logic rf_we, alu_mux_sel, branch_c, jal_c, jalr_c, raw_dwe;
@@ -49,7 +50,8 @@ module rv32i_cpu (
         .branch_c   (branch_c),
         .drdata     (drdata),
         .jal_c      (jal_c),
-        .jalr_c     (jalr_c)
+        .jalr_c     (jalr_c),
+        .done       (done)
     );
 
 endmodule
