@@ -13,7 +13,6 @@ module rv32i_cpu (
     output [31:0] bus_addr,
     output [31:0] bus_wdata,
     output [ 2:0] funct3_out
-    // output        dwe
 );
 
     logic pc_en, ir_en, oldpc_en, operand_en, alu_out_en, mdr_en;
@@ -222,7 +221,7 @@ module control_unit (
                 case (opcode)
                     `IL_TYPE: begin
                         funct3_out = funct3;
-                        dre       = 1'b1;
+                        dre        = 1'b1;
                         if (ready) begin
                             mdr_en  = 1'b1;
                             n_state = WB;

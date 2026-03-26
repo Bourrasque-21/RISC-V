@@ -3,7 +3,7 @@
 module APB_Master (
     // BUS Global signal
     input PCLK,
-    input PRESETn,
+    input PRESET,
 
     // SoC Internal signal with CPU
     input        [31:0] Addr,   //from CPU
@@ -49,12 +49,12 @@ module APB_Master (
     logic [31:0] PADDR_next, PWDATA_next;
     logic decode_en, PWRITE_next;
 
-    always_ff @(posedge PCLK, negedge PRESETn) begin
-        if (!PRESETn) begin  // negative edge reset
-            c_state     <= IDLE;
-            PADDR       <= 32'h0;
-            PWDATA      <= 32'h0;
-            PWRITE      <= 1'b0;
+    always_ff @(posedge PCLK, posedge PRESET) begin
+        if (PRESET) begin  // active-high reset
+            c_state <= IDLE;
+            PADDR   <= 32'h0;
+            PWDATA  <= 32'h0;
+            PWRITE  <= 1'b0;
         end else begin
             c_state <= n_state;
             PADDR   <= PADDR_next;
@@ -73,7 +73,11 @@ module APB_Master (
         n_state     = c_state;
         case (c_state)
             IDLE: begin
-                decode_en = 1'b0;
+                decode_en   = 1'b0;
+                PENABLE     = 1'b0;
+                PADDR_next  = 32'h0;
+                PWDATA_next = 32'h0;
+                PWRITE_next = 1'b0;
                 if (WREQ | RREQ) begin
                     PADDR_next  = Addr;
                     PWDATA_next = Wdata;
