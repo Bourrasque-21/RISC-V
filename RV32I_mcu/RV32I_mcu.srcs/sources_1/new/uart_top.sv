@@ -1,73 +1,5 @@
 `timescale 1ns / 1ps
 
-module uart_top (
-    input  clk,
-    input  rst,
-    input  uart_rx,
-    output uart_tx,
-    output tx_done
-);
-
-    wire       w_b_tick;
-    wire       w_rx_done;
-    wire [7:0] w_rx_data;
-    wire [7:0] w_rx_fifo_pop_data;
-    wire [7:0] w_tx_fifo_pop_data;
-    wire       w_tx_fifo_full;
-    wire       w_rx_fifo_empty;
-    wire       w_tx_busy;
-    wire       w_tx_fifo_empty;
-
-    uart_tx U_UART_TX (
-        .clk(clk),
-        .rst(rst),
-        .tx_start(~w_tx_fifo_empty),
-        .b_tick(w_b_tick),
-        .tx_data(w_tx_fifo_pop_data),
-        .tx_busy(w_tx_busy),
-        .tx_done(tx_done),
-        .uart_tx(uart_tx)
-    );
-
-    fifo U_FIFO_TX (
-        .clk(clk),
-        .rst(rst),
-        .push(~w_rx_fifo_empty),
-        .pop(~w_tx_busy),
-        .push_data(w_rx_fifo_pop_data),
-        .pop_data(w_tx_fifo_pop_data),
-        .full(w_tx_fifo_full),
-        .empty(w_tx_fifo_empty)
-    );
-
-    fifo U_FIFO_RX (
-        .clk(clk),
-        .rst(rst),
-        .push(w_rx_done),
-        .pop(~w_tx_fifo_full),
-        .push_data(w_rx_data),
-        .pop_data(w_rx_fifo_pop_data),
-        .full(),
-        .empty(w_rx_fifo_empty)
-    );
-
-    uart_rx U_UART_RX (
-        .clk(clk),
-        .rst(rst),
-        .rx(uart_rx),
-        .b_tick(w_b_tick),
-        .rx_data(w_rx_data),
-        .rx_done(w_rx_done)
-    );
-
-    baud_tick U_BAUD_TICK (
-        .clk(clk),
-        .rst(rst),
-        .b_tick(w_b_tick)
-    );
-
-endmodule
-
 module uart_rx (
     input        clk,
     input        rst,
@@ -144,7 +76,7 @@ module uart_rx (
 
             DATA: begin
                 if (b_tick) begin
-                    if (b_tick_cnt_reg == 4'd15) begin
+                    if (b_tick_cnt_reg == 5'd15) begin
                         b_tick_cnt_next = 5'd0;
                         buf_next        = {rx, buf_reg[7:1]};
 
@@ -161,7 +93,7 @@ module uart_rx (
 
             STOP: begin
                 if (b_tick) begin
-                    if (b_tick_cnt_reg == 16) begin
+                    if (b_tick_cnt_reg == 15) begin
                         n_state   = IDLE;
                         done_next = 1'b1;
                     end else begin
@@ -307,15 +239,28 @@ module uart_tx (
 endmodule
 
 module baud_tick (
-    input      clk,
-    input      rst,
-    output reg b_tick
+    input        clk,
+    input        rst,
+    input  [1:0] baud_sel,
+    output reg   b_tick
 );
 
-    parameter BAUDRATE = 9600 * 16;
-    parameter F_COUNT = 100_000_000 / BAUDRATE;
+    localparam integer F_COUNT_9600   = 651;
+    localparam integer F_COUNT_19200  = 326;
+    localparam integer F_COUNT_115200 = 54;
+    localparam integer MAX_F_COUNT    = F_COUNT_9600;
 
-    reg [$clog2(F_COUNT) - 1:0] counter_reg;
+    reg [$clog2(MAX_F_COUNT) - 1:0] counter_reg;
+    reg [$clog2(MAX_F_COUNT) - 1:0] f_count_sel;
+
+    always @(*) begin
+        case (baud_sel)
+            2'b00: f_count_sel = F_COUNT_9600;
+            2'b01: f_count_sel = F_COUNT_19200;
+            2'b10: f_count_sel = F_COUNT_115200;
+            default: f_count_sel = F_COUNT_9600;
+        endcase
+    end
 
     always @(posedge clk, posedge rst) begin
         if (rst) begin
@@ -323,7 +268,7 @@ module baud_tick (
             b_tick      <= 1'b0;
         end else begin
             counter_reg <= counter_reg + 1;
-            if (counter_reg == (F_COUNT - 1)) begin
+            if (counter_reg >= (f_count_sel - 1)) begin
                 counter_reg <= 0;
                 b_tick      <= 1'b1;
             end else begin
