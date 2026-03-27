@@ -16,7 +16,7 @@ module fifo #(
 
     wire [$clog2(DEPTH) - 1:0] w_wptr, w_rptr;
 
-    register_file #(
+    uart_fifo_regfile #(
         .DEPTH(DEPTH),
         .BIT_WIDTH(BIT_WIDTH)
     ) U_REG_FILE (
@@ -28,7 +28,7 @@ module fifo #(
         .pop_data(pop_data)
     );
 
-    control_unit #(
+    uart_fifo_ctrl #(
         .DEPTH(DEPTH)
     ) U_CONTROL_UNIT (
         .clk  (clk),
@@ -43,7 +43,7 @@ module fifo #(
 
 endmodule
 
-module register_file #(
+module uart_fifo_regfile #(
     parameter DEPTH = 4,
     BIT_WIDTH = 8
 ) (
@@ -66,7 +66,7 @@ module register_file #(
     assign pop_data = register_file[r_addr];
 endmodule
 
-module control_unit #(
+module uart_fifo_ctrl #(
     parameter DEPTH = 4
 ) (
     input                        clk,
