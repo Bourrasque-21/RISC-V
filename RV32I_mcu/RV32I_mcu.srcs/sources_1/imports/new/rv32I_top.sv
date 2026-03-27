@@ -1,9 +1,11 @@
 `timescale 1ns / 1ps
 
 module rv32i_mcu (
-    input clk,
-    input rst,
+    input       clk,
+    input       rst,
     input logic [15:0] sw,
+    input       uart_rx,
+    output      uart_tx,
     output logic [15:0] led
 );
 
@@ -28,10 +30,8 @@ module rv32i_mcu (
 
     assign w_prdata3 = 1'b0;
     assign w_prdata4 = 1'b0;
-    assign w_prdata5 = 1'b0;
     assign w_pready3 = 1'b0;
     assign w_pready4 = 1'b0;
-    assign w_pready5 = 1'b0;
 
     instruction_mem U_INSTRUCTION_MEM (.*);
 
@@ -118,6 +118,20 @@ module rv32i_mcu (
         .PREADY (w_pready2),
         .PRDATA (w_prdata2),
         .GPI_IN (sw)
+    );
+
+    apb_uart U_APB_UART (
+        .PCLK   (clk),
+        .PRESET (rst),
+        .PADDR  (w_paddr),
+        .PWDATA (w_pwdata),
+        .PENABLE(w_penable),
+        .PWRITE (w_pwrite),
+        .PSEL   (w_psel5),
+        .uart_rx(uart_rx),
+        .uart_tx(uart_tx),
+        .PREADY (w_pready5),
+        .PRDATA (w_prdata5)
     );
 
 
