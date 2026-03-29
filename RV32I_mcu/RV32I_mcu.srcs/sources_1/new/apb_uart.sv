@@ -11,7 +11,9 @@ module apb_uart (
     input               uart_rx,
     output              uart_tx,
     output logic        PREADY,
-    output logic [31:0] PRDATA
+    output logic [31:0] PRDATA,
+    output logic        interrupt_signal,
+    input               interrupt_clear
 );
 
     localparam [11:0] BAUD_ADDR = 12'h0000;
@@ -33,6 +35,7 @@ module apb_uart (
     logic [31:0] baudset_reg;
     logic        rx_valid_reg;
 
+    assign interrupt_signal = rx_valid_reg;
     assign PREADY = PENABLE & PSEL;
     assign w_baud_set = baudset_reg[1:0];
     assign w_tx_start = PREADY & PWRITE & (PADDR[11:0] == TXDATA_ADDR) & ~w_tx_busy;
@@ -59,6 +62,9 @@ module apb_uart (
             tx_data_reg <= 8'h0;
             rx_valid_reg <= 1'b0;
         end else begin
+            if (interrupt_clear) begin
+                rx_valid_reg <= 1'b0;
+            end
             if (PREADY & ~PWRITE & (PADDR[11:0] == RXDATA_ADDR)) begin
                 rx_valid_reg <= 1'b0;
             end

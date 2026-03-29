@@ -7,16 +7,19 @@ module rv32i_cpu (
     input  [31:0] instr_data,
     input  [31:0] bus_rdata,
     input         bus_ready,
+    input         interrupt_signal,
     output [31:0] instr_addr,
     output        bus_wreq,
     output        bus_rreq,
     output [31:0] bus_addr,
     output [31:0] bus_wdata,
-    output [ 2:0] funct3_out
+    output [ 2:0] funct3_out,
+    output        interrupt_clear
 );
 
     logic pc_en, ir_en, oldpc_en, operand_en, alu_out_en, mdr_en;
     logic rf_we, alu_mux_sel, branch_c, jal_c, jalr_c, comp_result;
+    logic save_return_addr, pc_sel_int;
     logic [31:0] ir_data_q;
     logic [ 2:0] w_rfwd_src;
     logic [ 3:0] alu_control;
@@ -24,6 +27,7 @@ module rv32i_cpu (
     control_unit U_CONTROL_UNIT (
         .clk        (clk),
         .rst        (rst),
+        .interrupt_signal(interrupt_signal),
         .ir_data    (ir_data_q),
         .comp_result(comp_result),
         .pc_en      (pc_en),
@@ -42,7 +46,10 @@ module rv32i_cpu (
         .branch_c   (branch_c),
         .jal_c      (jal_c),
         .jalr_c     (jalr_c),
-        .ready      (bus_ready)
+        .ready      (bus_ready),
+        .save_return_addr(save_return_addr),
+        .pc_sel_int (pc_sel_int),
+        .interrupt_clear(interrupt_clear)
     );
 
     datapath U_DATAPATH (
@@ -62,6 +69,8 @@ module rv32i_cpu (
         .branch_c       (branch_c),
         .jal_c          (jal_c),
         .jalr_c         (jalr_c),
+        .save_return_addr(save_return_addr),
+        .pc_sel_int     (pc_sel_int),
         .bus_rdata      (bus_rdata),
         .bus_addr       (bus_addr),
         .bus_wdata      (bus_wdata),
@@ -79,6 +88,7 @@ module control_unit (
     input        [31:0] ir_data,
     input               comp_result,
     input               ready,
+    input               interrupt_signal,
     output logic        pc_en,
     output logic        ir_en,
     output logic        oldpc_en,
@@ -94,7 +104,10 @@ module control_unit (
     output logic [ 2:0] funct3_out,
     output logic [ 2:0] rfwd_src,
     output logic [ 3:0] alu_control,
-    output logic        dre
+    output logic        dre,
+    output logic        save_return_addr,
+    output logic        pc_sel_int,
+    output logic        interrupt_clear
 );
 
     typedef enum logic [2:0] {
@@ -102,7 +115,8 @@ module control_unit (
         ID,
         EX,
         MEM,
-        WB
+        WB,
+        INT
     } state_e;
     state_e c_state, n_state;
 
@@ -139,13 +153,20 @@ module control_unit (
         jal_c       = 1'b0;
         jalr_c      = 1'b0;
         dre         = 1'b0;
+        save_return_addr = 1'b0;
+        pc_sel_int  = 1'b0;
+        interrupt_clear = 1'b0;
         n_state     = c_state;
         case (c_state)
             IF: begin
-                pc_en    = 1'b1;
-                ir_en    = 1'b1;
-                oldpc_en = 1'b1;
-                n_state  = ID;
+                if (interrupt_signal) begin
+                    n_state = INT;
+                end else begin
+                    pc_en    = 1'b1;
+                    ir_en    = 1'b1;
+                    oldpc_en = 1'b1;
+                    n_state  = ID;
+                end
             end
             ID: begin
                 operand_en = 1'b1;
@@ -255,6 +276,13 @@ module control_unit (
                     default: rfwd_src = 3'b0;
                 endcase
                 n_state = IF;
+            end
+            INT: begin
+                save_return_addr = 1'b1;
+                pc_en            = 1'b1;
+                pc_sel_int       = 1'b1;
+                interrupt_clear = 1'b1;
+                n_state          = IF;
             end
         endcase
     end

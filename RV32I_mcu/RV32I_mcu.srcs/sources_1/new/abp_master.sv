@@ -156,18 +156,15 @@ module address_decoder (
         psel5 = 1'b0;  // idel : 0
 
         if (en) begin
-            case (addr[31:28])
-                4'h1: psel0 = 1'b1;
-                4'h2: begin
-                    case (addr[15:12])
-                        4'h0: psel1 = 1'b1;
-                        4'h1: psel2 = 1'b1;
-                        4'h2: psel3 = 1'b1;
-                        4'h3: psel4 = 1'b1;
-                        4'h4: psel5 = 1'b1;
-                    endcase
-                end
-            endcase
+            if (addr[31:28] == 4'h2) begin
+                case (addr[15:12])
+                    4'h0: psel1 = 1'b1;
+                    4'h1: psel2 = 1'b1;
+                    4'h2: psel3 = 1'b1;
+                    4'h3: psel4 = 1'b1;
+                    4'h4: psel5 = 1'b1;
+                endcase
+            end
         end
     end
 
@@ -195,40 +192,34 @@ module apb_mux (
     always_comb begin
         Rdata = 32'h0000_0000;
         Ready = 1'b0;
-        case (sel[31:28])
-            4'h1: begin
-                Rdata = PRDATA0;
-                Ready = PREADY0;
-            end
-            4'h2: begin
-                case (sel[15:12])
-                    4'h0: begin
-                        Rdata = PRDATA1;
-                        Ready = PREADY1;
-                    end
-                    4'h1: begin
-                        Rdata = PRDATA2;
-                        Ready = PREADY2;
-                    end
-                    4'h2: begin
-                        Rdata = PRDATA3;
-                        Ready = PREADY3;
-                    end
-                    4'h3: begin
-                        Rdata = PRDATA4;
-                        Ready = PREADY4;
-                    end
-                    4'h4: begin
-                        Rdata = PRDATA5;
-                        Ready = PREADY5;
-                    end
-                    default: begin
-                        Rdata = 32'hxxxx_xxxx;
-                        Ready = 1'bx;
-                    end
-                endcase
-            end
-        endcase
+        if (sel[31:28] == 4'h2) begin
+            case (sel[15:12])
+                4'h0: begin
+                    Rdata = PRDATA1;
+                    Ready = PREADY1;
+                end
+                4'h1: begin
+                    Rdata = PRDATA2;
+                    Ready = PREADY2;
+                end
+                4'h2: begin
+                    Rdata = PRDATA3;
+                    Ready = PREADY3;
+                end
+                4'h3: begin
+                    Rdata = PRDATA4;
+                    Ready = PREADY4;
+                end
+                4'h4: begin
+                    Rdata = PRDATA5;
+                    Ready = PREADY5;
+                end
+                default: begin
+                    Rdata = 32'hxxxx_xxxx;
+                    Ready = 1'bx;
+                end
+            endcase
+        end
     end
 
 endmodule

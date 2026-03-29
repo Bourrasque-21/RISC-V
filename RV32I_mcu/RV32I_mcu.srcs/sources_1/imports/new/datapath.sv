@@ -18,13 +18,15 @@ module datapath (
     input               branch_c,
     input               jal_c,
     input               jalr_c,
+    input               save_return_addr,
+    input               pc_sel_int,
     input        [31:0] bus_rdata,
     output logic [31:0] bus_addr,
     output logic [31:0] bus_wdata,
     output logic [31:0] instr_addr,
     output logic [31:0] ir_data,
     output logic        out_comp_result
-    );
+);
 
     logic [31:0]
         rd1,
@@ -39,13 +41,19 @@ module datapath (
         alu_mux_out,
         imm_data,
         dmem_data_result,
+        regfile_wdata,
         pc4_sum,
+        normal_pc_next,
         old_pc4_sum,
         pc_rel_sum,
         pc_final_addr,
         pc_base_addr,
         pc_jump_addr;
     logic comp_result, branch_taken, branch_x_jal;
+    logic        regfile_we;
+    logic [ 4:0] regfile_wa;
+    localparam [31:0] IRQ_VECTOR = 32'h0000_0040;
+    localparam [4:0] RETURN_ADDR_REG = 5'd26;
 
     assign out_comp_result = comp_result;
     assign bus_addr = out_alu_result;
@@ -54,6 +62,18 @@ module datapath (
     assign branch_x_jal = branch_taken | jal_c | jalr_c;
     assign pc_base_addr = (jalr_c) ? out_rd1 : out_old_pc;
     assign pc_jump_addr = (jalr_c) ? {pc_rel_sum[31:1], 1'b0} : pc_rel_sum;
+    assign normal_pc_next = branch_x_jal ? pc_jump_addr : pc4_sum;
+    assign regfile_we = save_return_addr | rf_we;
+    assign regfile_wa = save_return_addr ? RETURN_ADDR_REG : ir_data[11:7];
+    assign regfile_wdata = save_return_addr ? instr_addr : dmem_data_result;
+
+    always_comb begin
+        if (pc_sel_int) begin
+            pc_final_addr = IRQ_VECTOR;
+        end else begin
+            pc_final_addr = normal_pc_next;
+        end
+    end
 
     pc U_PC (
         .clk       (clk),
@@ -97,21 +117,14 @@ module datapath (
         .s(pc_rel_sum)
     );
 
-    mux_2x1 PC_ADDR_SEL (
-        .a      (pc4_sum),
-        .b      (pc_jump_addr),
-        .sel    (branch_x_jal),
-        .mux_out(pc_final_addr)
-    );
-
     register_file U_REG_FILE (
         .clk  (clk),
         .rst  (rst),
         .RA1  (ir_data[19:15]),
         .RA2  (ir_data[24:20]),
-        .WA   (ir_data[11:7]),
-        .Wdata(dmem_data_result),
-        .rf_we(rf_we),
+        .WA   (regfile_wa),
+        .Wdata(regfile_wdata),
+        .rf_we(regfile_we),
         .RD1  (rd1),
         .RD2  (rd2)
     );
@@ -222,7 +235,13 @@ module register_file (
 
     assign RD1 = (RA1 == 5'd0) ? 32'd0 : reg_file[RA1];
     assign RD2 = (RA2 == 5'd0) ? 32'd0 : reg_file[RA2];
-
+    initial begin
+        reg_file[27] = 32'h1000_0000;
+        reg_file[28] = 32'h2000_4000;
+        reg_file[29] = 32'h2000_4004;
+        reg_file[30] = 32'h2000_4008;
+        reg_file[31] = 32'h2000_400c;
+    end
     always_ff @(posedge clk) begin
         if (!rst && rf_we && (WA != 5'd0)) begin
             reg_file[WA] <= Wdata;
