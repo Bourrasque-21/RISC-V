@@ -91,7 +91,7 @@ module uart_fifo_ctrl #(
 
     always @(posedge clk, posedge rst) begin
         if (rst) begin
-            c_state = 2'b00;
+            c_state <= 2'b00;
             wptr_reg  <= 0;
             rptr_reg  <= 0;
             full_reg  <= 0;
